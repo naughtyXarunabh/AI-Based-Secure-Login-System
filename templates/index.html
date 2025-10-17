@@ -4,7 +4,8 @@
     <title>FaceGuard - AI Secure Login</title>
     <style>
         body { font-family: Arial; text-align: center; background: #1a1a1a; color: white; }
-        .container { max-width: 600px; margin: 50px auto; padding: 20px; }
+        .container { max-width: 800px; margin: 50px auto; padding: 20px; }
+        .section { margin: 30px 0; padding: 20px; border: 1px solid #333; border-radius: 10px; }
         video, canvas { border: 2px solid #00ff88; border-radius: 10px; margin: 10px; }
         button { background: #00ff88; color: black; border: none; padding: 15px 30px; 
                  border-radius: 5px; cursor: pointer; margin: 10px; font-size: 16px; }
@@ -13,32 +14,52 @@
         .success { background: #004d1a; border: 1px solid #00ff88; }
         .error { background: #4d0000; border: 1px solid #ff0000; }
         input { padding: 10px; margin: 10px; border-radius: 5px; border: 1px solid #555; 
-                background: #333; color: white; }
+                background: #333; color: white; width: 300px; }
+        .chat-box { background: #222; border-radius: 10px; padding: 20px; margin: 20px 0; 
+                    height: 300px; overflow-y: auto; text-align: left; }
+        .chat-input { display: flex; gap: 10px; justify-content: center; align-items: center; }
+        .user-msg { background: #00ff88; color: black; padding: 10px; border-radius: 10px; 
+                    margin: 10px 0; max-width: 70%; margin-left: auto; }
+        .ai-msg { background: #333; color: white; padding: 10px; border-radius: 10px; 
+                  margin: 10px 0; max-width: 70%; }
+        #chatSection { display: none; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🛡️ FaceGuard - AI Secure Login</h1>
         
-        <video id="video" width="400" height="300" autoplay></video>
-        <canvas id="canvas" width="400" height="300" style="display:none;"></canvas>
-        
-        <div>
-            <input type="text" id="nameInput" placeholder="Enter your name" style="display:none;">
-            <br>
-            <button onclick="startCamera()">Start Camera</button>
-            <button onclick="registerFace()" id="registerBtn" style="display:none;">Register Face</button>
-            <button onclick="loginWithFace()" id="loginBtn" style="display:none;">Login</button>
+        <div class="section">
+            <h2>Face Authentication</h2>
+            <video id="video" width="400" height="300" autoplay></video>
+            <canvas id="canvas" width="400" height="300" style="display:none;"></canvas>
+            
+            <div>
+                <input type="text" id="nameInput" placeholder="Enter your name" style="display:none;">
+                <br>
+                <button onclick="startCamera()">Start Camera</button>
+                <button onclick="registerFace()" id="registerBtn" style="display:none;">Register Face</button>
+                <button onclick="loginWithFace()" id="loginBtn" style="display:none;">Login</button>
+            </div>
+            
+            <div id="message"></div>
         </div>
-        
-        <div id="message"></div>
+
+        <div class="section" id="chatSection">
+            <h2>🤖 AI Assistant</h2>
+            <div id="chatBox" class="chat-box"></div>
+            <div class="chat-input">
+                <input type="text" id="chatInput" placeholder="Ask me anything..." style="width: 400px;">
+                <button onclick="sendMessage()">Send</button>
+            </div>
+        </div>
     </div>
 
     <script>
         let video = document.getElementById('video');
         let canvas = document.getElementById('canvas');
         let ctx = canvas.getContext('2d');
-        let stream;
+        let currentUser = null;
 
         async function startCamera() {
             try {
@@ -92,9 +113,47 @@
                 
                 const result = await response.json();
                 showMessage(result.message, result.success ? 'success' : 'error');
+                
+                if (result.success) {
+                    currentUser = result.user;
+                    document.getElementById('chatSection').style.display = 'block';
+                    addMessage(`Hello ${currentUser}! I'm your AI assistant. How can I help you?`, 'ai');
+                }
             } catch (err) {
                 showMessage('Login failed', 'error');
             }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            addMessage(message, 'user');
+            input.value = '';
+            
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: message })
+                });
+                
+                const result = await response.json();
+                addMessage(result.response, 'ai');
+            } catch (err) {
+                addMessage('Sorry, I encountered an error.', 'ai');
+            }
+        }
+
+        function addMessage(text, sender) {
+            const chatBox = document.getElementById('chatBox');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = sender === 'user' ? 'user-msg' : 'ai-msg';
+            msgDiv.textContent = text;
+            chatBox.appendChild(msgDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
         }
 
         function showMessage(text, type) {
@@ -102,6 +161,13 @@
             messageDiv.textContent = text;
             messageDiv.className = 'message ' + type;
         }
+
+        // Enter key support for chat
+        document.getElementById('chatInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
     </script>
 </body>
 </html>
